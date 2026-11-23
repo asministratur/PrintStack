@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Printstack</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="global-drop-overlay" class="drop-overlay hidden" aria-hidden="true">
+    <div class="drop-overlay-card">
+      <div class="drop-overlay-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M12 18v-6M9 15l3-3 3 3"/>
+        </svg>
+      </div>
+      <h2>Drop files or folders</h2>
+      <p>PDF, Word (.docx, .doc, .rtf), and Images (.jpg, .png, .webp, .tiff)</p>
+    </div>
+  </div>
+
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand">
+        <img src="/logo.svg" alt="" class="brand-icon" onerror="this.style.display='none'" />
+        <span class="brand-title">Printstack</span>
+      </div>
+      <div class="printer-pill" id="header-printer-pill" title="Active printer status">
+        <span class="status-dot ok" id="header-status-dot"></span>
+        <span class="printer-pill-name" id="header-printer-name">Detecting printers...</span>
+        <span class="printer-pill-sep">/</span>
+        <span class="printer-pill-status" id="header-printer-status">Ready</span>
+        <button class="spooler-badge-btn" id="btn-open-spooler" title="Inspect Windows Spooler Queue">
+          <span id="header-jobs-count">0</span> jobs
+        </button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="segmented-control" role="group" aria-label="Batch Job Mode">
+        <button class="seg-btn active" id="btn-mode-separate" data-merge="false" title="Send each document as its own print job">
+          Separate
+        </button>
+        <button class="seg-btn" id="btn-mode-merge" data-merge="true" title="Combine all documents into 1 unified print job">
+          Merged
+        </button>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <button class="hdr-btn" id="btn-open-presets" title="Manage print presets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <span class="hdr-label">Presets</span>
+      </button>
+
+      <button class="hdr-btn" id="btn-open-history" title="View print history and reprint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+        <span class="hdr-label">History</span>
+      </button>
+
+      <button class="hdr-btn" id="btn-open-integration" title="Desktop shortcut and Explorer right-click menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        <span class="hdr-label">Shortcuts</span>
+      </button>
+
+      <button class="hdr-icon-btn" id="btn-theme-toggle" title="Theme: Auto">
+        <span id="theme-icon"></span>
+        <span class="theme-label" id="theme-label">Auto</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- LEFT PANE: DOCUMENT QUEUE -->
+    <section class="pane pane-queue" aria-label="Document Queue">
+      <div class="pane-header">
+        <div class="pane-title-group">
+          <h2>Queue</h2>
+          <span class="count-pill" id="queue-count-pill">0</span>
+        </div>
+        <div class="pane-actions">
+          <button class="btn-sm primary-subtle" id="btn-add-files" title="Add files (Ctrl+O)">+ Files</button>
+          <button class="btn-sm" id="btn-add-folder" title="Add folder recursively">+ Folder</button>
+          <button class="btn-sm danger-subtle" id="btn-clear-queue" title="Clear all documents">Clear</button>
+        </div>
+      </div>
+
+      <div class="queue-toolbar hidden" id="queue-toolbar">
+        <label class="queue-select-all" title="Enable or disable all documents">
+          <input type="checkbox" id="chk-queue-all" checked />
+          <span id="queue-selected-summary">0/0 active</span>
+        </label>
+        <button class="btn-xs" id="btn-queue-sort" title="Sort queue">Sort: A–Z</button>
+      </div>
+
+      <div class="queue-drop-hint" id="queue-drop-zone" title="Click to browse or drop files here">
+        <span>Drop files or folders</span>
+        <kbd>Ctrl+O</kbd>
+      </div>
+
+      <div class="queue-list" id="queue-list"></div>
+    </section>
+
+    <!-- CENTER PANE: INTERACTIVE PRINT PREVIEW -->
+    <section class="pane pane-preview" aria-label="Print Preview">
+      <div class="preview-toolbar">
+        <div class="preview-toolbar-left">
+          <div class="segmented-control compact hidden" id="preview-scope-switch">
+            <button class="seg-btn active" data-scope="file">File</button>
+            <button class="seg-btn" data-scope="merged">Merged</button>
+          </div>
+          <div class="nav-group">
+            <button class="icon-btn" id="btn-prev-sheet" title="Previous sheet (Left Arrow)" disabled>&#9664;</button>
+            <div class="sheet-counter">
+              <span>Sheet</span>
+              <input type="number" id="input-sheet-num" min="1" value="1" aria-label="Sheet number" />
+              <span id="label-total-sheets">of 0</span>
+            </div>
+            <button class="icon-btn" id="btn-next-sheet" title="Next sheet (Right Arrow)" disabled>&#9654;</button>
+          </div>
+        </div>
+
+        <div class="preview-meta-pill" id="preview-meta-pill">No document selected</div>
+
+        <div class="preview-toolbar-right">
+          <div class="zoom-group" title="Hold Ctrl + Scroll to zoom">
+            <button class="icon-btn" id="btn-zoom-out" title="Zoom out">−</button>
+            <button class="btn-xs" id="btn-zoom-fit" title="Fit sheet in view">Fit</button>
+            <span class="zoom-label" id="label-zoom">Fit</span>
+            <button class="icon-btn" id="btn-zoom-in" title="Zoom in">+</button>
+          </div>
+          <button class="btn-sm hidden" id="btn-open-original" title="Open original file in default app">Open</button>
+        </div>
+      </div>
+
+      <div class="diagnostic-banner hidden" id="diagnostic-banner" role="status">
+        <span class="diag-dot"></span>
+        <span id="diagnostic-banner-text"></span>
+      </div>
+
+      <div class="preview-stage" id="preview-stage">
+        <div class="preview-empty" id="preview-empty">
+          <div class="preview-empty-art">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8" rx="1"/>
+            </svg>
+          </div>
+          <h3>Ready for batch printing</h3>
+          <p>Drop <strong>PDF</strong>, <strong>Word</strong>, <strong>Images</strong>, or entire <strong>Folders</strong> to preview sheets and print with full Windows driver settings.</p>
+          <div class="preview-empty-cta">
+            <button class="btn-primary" id="btn-empty-add-files">Select Files</button>
+            <button class="btn-secondary" id="btn-empty-add-folder">Select Folder</button>
+          </div>
+          <div class="shortcut-hints">
+            <span><kbd>Ctrl+O</kbd> Add</span>
+            <span><kbd>↑</kbd><kbd>↓</kbd> Queue</span>
+            <span><kbd>←</kbd><kbd>→</kbd> Sheets</span>
+            <span><kbd>Ctrl+P</kbd> Print</span>
+          </div>
+        </div>
+
+        <div class="preview-state-card hidden" id="preview-state-card">
+          <div class="spinner hidden" id="preview-spinner"></div>
+          <h3 id="preview-state-title">Converting Document...</h3>
+          <p id="preview-state-desc"></p>
+          <button class="btn-primary hidden" id="btn-preview-unlock">Enter PDF Password</button>
+        </div>
+
+        <div class="sheet-wrapper hidden" id="sheet-wrapper">
+          <img id="preview-sheet-img" alt="Print preview sheet" draggable="false" />
+        </div>
+      </div>
+
+      <div class="thumb-strip-wrap hidden" id="thumb-strip-wrap">
+        <div class="thumb-strip-header">
+          <span class="thumb-strip-title" id="thumb-strip-title">Click thumbnail to jump · click ✓/× to skip</span>
+          <div class="thumb-strip-actions">
+            <button class="btn-xs" id="btn-include-all-pages">Include All</button>
+          </div>
+        </div>
+        <div class="thumb-strip" id="thumb-strip"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANE: DYNAMIC PRINT SETTINGS -->
+    <aside class="pane pane-settings" aria-label="Print Settings">
+      <div class="settings-scope-tabs" id="settings-scope-tabs">
+        <button class="scope-tab active" data-tab="global">Global</button>
+        <button class="scope-tab disabled" data-tab="file" id="tab-file-settings">
+          <span>This File</span>
+          <span class="override-dot hidden" id="tab-override-dot"></span>
+        </button>
+      </div>
+
+      <div class="override-banner hidden" id="override-banner">
+        <label class="toggle-row">
+          <input type="checkbox" id="chk-use-override" />
+          <span>Custom settings for this file</span>
+        </label>
+        <button class="btn-xs" id="btn-reset-override">Reset</button>
+      </div>
+
+      <div class="settings-scroll" id="settings-form">
+        <!-- Quick Preset Bar -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <label class="setting-label" for="sel-quick-preset">Quick Preset</label>
+            <button class="btn-link" id="btn-quick-manage-presets" type="button">Manage</button>
+          </div>
+          <select id="sel-quick-preset" class="input-select">
+            <option value="">Apply a saved preset...</option>
+          </select>
+        </div>
+
+        <!-- Printer Selection -->
+        <div class="setting-group">
+          <label class="setting-label" for="sel-printer">Printer</label>
+          <div class="printer-select-row">
+            <select id="sel-printer" class="input-select"></select>
+            <button class="icon-btn" id="btn-refresh-printers" title="Refresh printers">&#8635;</button>
+          </div>
+          <div class="driver-props-row">
+            <button class="btn-secondary full-width" id="btn-printer-properties">
+              Printer Properties...
+            </button>
+          </div>
+          <div class="driver-custom-pill hidden" id="driver-custom-pill">
+            <span>Custom driver settings active</span>
+            <button class="btn-link" id="btn-clear-driver-props">Clear</button>
+          </div>
+        </div>
+
+        <!-- Copies & Collate -->
+        <div class="setting-grid-2">
+          <div class="setting-group">
+            <label class="setting-label" for="inp-copies">Copies</label>
+            <input type="number" id="inp-copies" class="input-text" min="1" max="999" value="1" />
+          </div>
+          <div class="setting-group align-end">
+            <label class="check-row" id="wrap-collate">
+              <input type="checkbox" id="chk-collate" checked />
+              <span>Collate</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Color Mode -->
+        <div class="setting-group">
+          <span class="setting-label">Color</span>
+          <div class="segmented-control full" id="seg-color">
+            <button class="seg-btn active" data-val="color">Color</button>
+            <button class="seg-btn" data-val="grayscale">Black &amp; White</button>
+          </div>
+        </div>
+
+        <!-- Duplex -->
+        <div class="setting-group">
+          <label class="setting-label" for="sel-duplex">Two-Sided (Duplex)</label>
+          <select id="sel-duplex" class="input-select">
+            <option value="simplex">One-Sided</option>
+            <option value="long_edge">Two-Sided (Long Edge)</option>
+            <option value="short_edge">Two-Sided (Short Edge)</option>
+          </select>
+        </div>
+
+        <!-- Paper Size & Source -->
+        <div class="setting-group">
+          <label class="setting-label" for="sel-paper-size">Paper Size</label>
+          <select id="sel-paper-size" class="input-select"></select>
+        </div>
+
+        <div class="setting-group" id="wrap-paper-bin">
+          <label class="setting-label" for="sel-paper-bin">Paper Tray</label>
+          <select id="sel-paper-bin" class="input-select"></select>
+        </div>
+
+        <!-- Collapsible Layout & Advanced Section -->
+        <details class="settings-accordion" id="acc-advanced">
+          <summary class="accordion-summary">
+            <span>Layout &amp; Advanced</span>
+            <span class="accordion-badge" id="advanced-summary-pill">Default</span>
+          </summary>
+          <div class="accordion-body">
+            <!-- Orientation -->
+            <div class="setting-group">
+              <span class="setting-label">Orientation</span>
+              <div class="segmented-control full" id="seg-orientation">
+                <button class="seg-btn active" data-val="auto">Auto</button>
+                <button class="seg-btn" data-val="portrait">Portrait</button>
+                <button class="seg-btn" data-val="landscape">Landscape</button>
+              </div>
+            </div>
+
+            <!-- Page Range -->
+            <div class="setting-group">
+              <span class="setting-label">Pages</span>
+              <div class="segmented-control full" id="seg-pages">
+                <button class="seg-btn active" data-val="all">All</button>
+                <button class="seg-btn" data-val="odd">Odd</button>
+                <button class="seg-btn" data-val="even">Even</button>
+                <button class="seg-btn" data-val="custom">Custom</button>
+              </div>
+              <input
+                type="text"
+                id="inp-page-range"
+                class="input-text hidden mt-6"
+                placeholder="e.g. 1-3, 5, 8-10"
+              />
+              <div class="field-error hidden" id="err-page-range"></div>
+            </div>
+
+            <!-- Scale & Scale % -->
+            <div class="setting-grid-2">
+              <div class="setting-group">
+                <label class="setting-label" for="sel-scale">Scaling</label>
+                <select id="sel-scale" class="input-select">
+                  <option value="fit">Fit to Page</option>
+                  <option value="shrink">Shrink Oversized</option>
+                  <option value="actual">Actual Size (100%)</option>
+                  <option value="custom">Custom %</option>
+                </select>
+              </div>
+              <div class="setting-group" id="wrap-scale-pct">
+                <label class="setting-label" for="inp-scale-pct">Scale %</label>
+                <input type="number" id="inp-scale-pct" class="input-text" min="10" max="400" value="100" />
+              </div>
+            </div>
+
+            <!-- N-up & Quality -->
+            <div class="setting-grid-2">
+              <div class="setting-group">
+                <label class="setting-label" for="sel-nup">Pages / Sheet</label>
+                <select id="sel-nup" class="input-select">
+                  <option value="1">1 (Normal)</option>
+                  <option value="2">2 per sheet</option>
+                  <option value="4">4 per sheet</option>
+                  <option value="6">6 per sheet</option>
+                  <option value="9">9 per sheet</option>
+                </select>
+              </div>
+              <div class="setting-group">
+                <label class="setting-label" for="sel-quality">Quality</label>
+                <select id="sel-quality" class="input-select">
+                  <option value="150">150 DPI (Draft)</option>
+                  <option value="300" selected>300 DPI (Standard)</option>
+                  <option value="600">600 DPI (High)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="setting-grid-2 hidden" id="wrap-nup-options">
+              <div class="setting-group">
+                <label class="setting-label" for="sel-nup-order">Page Order</label>
+                <select id="sel-nup-order" class="input-select">
+                  <option value="row">Left to Right</option>
+                  <option value="column">Top to Bottom</option>
+                </select>
+              </div>
+              <div class="setting-group align-end">
+                <label class="check-row">
+                  <input type="checkbox" id="chk-nup-border" />
+                  <span>Page Borders</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Sticky Print Footer -->
+      <div class="settings-footer">
+        <div class="batch-progress-mini hidden" id="batch-progress-mini">
+          <div class="progress-text-row">
+            <span id="batch-progress-label">Printing...</span>
+            <button class="btn-link" id="btn-open-batch-modal">Details</button>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="batch-progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="summary-line" id="print-summary-line">Add files to start printing</div>
+        <div class="cta-row">
+          <button class="btn-primary btn-print-cta" id="btn-print-now" disabled>
+            Print Batch
+          </button>
+          <button class="btn-danger hidden" id="btn-cancel-print">Cancel</button>
+          <button class="btn-secondary hidden" id="btn-retry-failed">Retry Failed</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- MODALS -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <!-- Pre-Print Confirmation Guardrail -->
+    <div class="modal-card hidden" id="modal-confirm-print" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 id="confirm-print-title">Confirm Print Batch</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-print-message"></p>
+        <div class="confirm-meta" id="confirm-print-meta"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close>Cancel</button>
+        <button class="btn-primary" id="btn-confirm-print-go">Print Anyway</button>
+      </div>
+    </div>
+
+    <!-- Unlock PDF -->
+    <div class="modal-card hidden" id="modal-password" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Unlock Protected PDF</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" id="password-modal-filename"></p>
+        <label class="setting-label" for="inp-pdf-password">PDF Password</label>
+        <input type="password" id="inp-pdf-password" class="input-text" placeholder="Enter document password" />
+        <div class="field-error hidden" id="err-pdf-password"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close>Cancel</button>
+        <button class="btn-primary" id="btn-submit-password">Unlock</button>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="modal-card wide hidden" id="modal-presets" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Print Presets</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="preset-save-box">
+          <input type="text" id="inp-preset-name" class="input-text" placeholder="Preset name (e.g. Monthly Report Duplex)" />
+          <input type="text" id="inp-preset-desc" class="input-text" placeholder="Optional description" />
+          <button class="btn-primary" id="btn-save-preset">Save Global</button>
+        </div>
+        <div class="modal-list" id="presets-list"></div>
+      </div>
+    </div>
+
+    <!-- Print History -->
+    <div class="modal-card wide hidden" id="modal-history" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Print History</h3>
+        <div class="modal-header-actions">
+          <button class="btn-sm danger-subtle" id="btn-clear-history">Clear All</button>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-list" id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- Spooler Queue -->
+    <div class="modal-card wide hidden" id="modal-spooler" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 id="spooler-modal-title">Windows Print Queue</h3>
+        <div class="modal-header-actions">
+          <button class="btn-sm" id="btn-refresh-spooler">Refresh</button>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-list" id="spooler-jobs-list"></div>
+      </div>
+    </div>
+
+    <!-- Batch Details -->
+    <div class="modal-card wide hidden" id="modal-batch" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Batch Print Progress</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-list" id="batch-files-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger hidden" id="btn-modal-cancel-batch">Cancel Remaining</button>
+        <button class="btn-secondary hidden" id="btn-modal-retry-batch">Retry Failed</button>
+        <button class="btn-primary" data-close>Close</button>
+      </div>
+    </div>
+
+    <!-- Integration Settings -->
+    <div class="modal-card hidden" id="modal-integration" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Desktop &amp; Explorer Integration</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Launch Printstack from your Desktop or send selected files and folders straight from Windows Explorer.</p>
+        <div class="integration-rows">
+          <label class="check-card">
+            <input type="checkbox" id="chk-int-desktop" checked />
+            <div>
+              <strong>Desktop Shortcut</strong>
+              <div class="muted small">Creates "Printstack" on your Desktop</div>
+            </div>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" id="chk-int-sendto" checked />
+            <div>
+              <strong>Windows "Send to" Menu</strong>
+              <div class="muted small">Select multiple files &rarr; Right-click &rarr; Send to &rarr; Printstack</div>
+            </div>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" id="chk-int-context" checked />
+            <div>
+              <strong>Explorer Right-Click Menu</strong>
+              <div class="muted small">Adds "Print with Printstack" on PDF, Word, Images &amp; Folders</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger-outline" id="btn-uninstall-integration">Remove Selected</button>
+        <button class="btn-primary" id="btn-install-integration">Apply &amp; Install</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
