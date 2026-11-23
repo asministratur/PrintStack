@@ -15,6 +15,8 @@ No Python installation is required for prebuilt releases.
    - **Portable** (`Printstack-*-win64-portable.zip`): extract and run `Printstack.exe`.
 2. Drop files or folders into the window, verify the sheet preview, and press `Ctrl+P` to print.
 
+> **Windows SmartScreen note**: Prebuilt binaries are not code-signed yet, so Windows Defender SmartScreen may show an *Unknown publisher* warning on first launch. Click **More info** -> **Run anyway**. Every release is built transparently via GitHub Actions with `SHA256SUMS.txt` and GitHub Build Provenance Attestations (`Get-FileHash Printstack-Setup-*.exe -Algorithm SHA256`).
+
 ## Features
 
 - **Multi-format queue**: PDF (`.pdf`), Word (`.docx`, `.doc`, `.rtf`), and images (`.jpg`, `.jpeg`, `.png`, `.bmp`, `.webp`, `.tif`, `.tiff`) with natural sort and recursive folder import.
