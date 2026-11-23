@@ -115,7 +115,10 @@ def list_printers() -> list[PrinterSummary]:
         default_printer = ""
 
     flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
-    raw_printers = win32print.EnumPrinters(flags, None, 2)
+    try:
+        raw_printers = win32print.EnumPrinters(flags, None, 2)
+    except Exception:
+        return []
     summaries: list[PrinterSummary] = []
 
     for info in raw_printers:
@@ -279,35 +282,36 @@ def serialize_devmode(dm: Any) -> str:
 
 def deserialize_devmode(printer_name: str, b64: str):
     """Reconstruct and validate a PyDEVMODEW for a printer from a serialized payload."""
-    payload = json.loads(base64.b64decode(b64.encode("ascii")).decode("utf-8"))
-    driver_data = base64.b64decode(payload["driver_data_b64"].encode("ascii"))
-    dm = pywintypes.DEVMODEType(len(driver_data))
-    if driver_data:
-        dm.DriverData = driver_data
-    dm.DeviceName = payload.get("device_name") or printer_name[:31]
-    dm.SpecVersion = int(payload["spec_version"])
-    dm.DriverVersion = int(payload["driver_version"])
-    dm.Fields = int(payload["fields"])
-    dm.PaperSize = int(payload["paper_size"])
-    dm.PaperLength = int(payload["paper_length"])
-    dm.PaperWidth = int(payload["paper_width"])
-    dm.Orientation = int(payload["orientation"])
-    dm.Duplex = int(payload["duplex"])
-    dm.Color = int(payload["color"])
-    dm.Copies = int(payload["copies"])
-    dm.DefaultSource = int(payload["default_source"])
-    dm.Collate = int(payload["collate"])
-    dm.PrintQuality = int(payload["print_quality"])
-    dm.YResolution = int(payload["y_resolution"])
+    with _com_apartment():
+        payload = json.loads(base64.b64decode(b64.encode("ascii")).decode("utf-8"))
+        driver_data = base64.b64decode(payload["driver_data_b64"].encode("ascii"))
+        dm = pywintypes.DEVMODEType(len(driver_data))
+        if driver_data:
+            dm.DriverData = driver_data
+        dm.DeviceName = payload.get("device_name") or printer_name[:31]
+        dm.SpecVersion = int(payload["spec_version"])
+        dm.DriverVersion = int(payload["driver_version"])
+        dm.Fields = int(payload["fields"])
+        dm.PaperSize = int(payload["paper_size"])
+        dm.PaperLength = int(payload["paper_length"])
+        dm.PaperWidth = int(payload["paper_width"])
+        dm.Orientation = int(payload["orientation"])
+        dm.Duplex = int(payload["duplex"])
+        dm.Color = int(payload["color"])
+        dm.Copies = int(payload["copies"])
+        dm.DefaultSource = int(payload["default_source"])
+        dm.Collate = int(payload["collate"])
+        dm.PrintQuality = int(payload["print_quality"])
+        dm.YResolution = int(payload["y_resolution"])
 
-    handle = win32print.OpenPrinter(printer_name)
-    try:
-        win32print.DocumentProperties(
-            0, handle, printer_name, dm, dm, win32con.DM_IN_BUFFER | win32con.DM_OUT_BUFFER
-        )
-    finally:
-        win32print.ClosePrinter(handle)
-    return dm
+        handle = win32print.OpenPrinter(printer_name)
+        try:
+            win32print.DocumentProperties(
+                0, handle, printer_name, dm, dm, win32con.DM_IN_BUFFER | win32con.DM_OUT_BUFFER
+            )
+        finally:
+            win32print.ClosePrinter(handle)
+        return dm
 
 
 def _copy_devmode(dm: Any):
@@ -343,66 +347,67 @@ def build_devmode_for_settings(
     software_copies: bool = False,
 ):
     """Create a driver-validated DEVMODE applying PrintSettings on top of base/stored DriverData."""
-    handle = win32print.OpenPrinter(printer_name)
-    try:
-        if settings.devmode_b64:
-            try:
-                dm = deserialize_devmode(printer_name, settings.devmode_b64)
-            except Exception:
+    with _com_apartment():
+        handle = win32print.OpenPrinter(printer_name)
+        try:
+            if settings.devmode_b64:
+                try:
+                    dm = deserialize_devmode(printer_name, settings.devmode_b64)
+                except Exception:
+                    base_dm, _ = _get_default_devmode(handle, printer_name)
+                    dm = _copy_devmode(base_dm)
+            else:
                 base_dm, _ = _get_default_devmode(handle, printer_name)
                 dm = _copy_devmode(base_dm)
-        else:
-            base_dm, _ = _get_default_devmode(handle, printer_name)
-            dm = _copy_devmode(base_dm)
 
-        fields = int(dm.Fields)
+            fields = int(dm.Fields)
 
-        if settings.paper_size_id is not None:
-            dm.PaperSize = int(settings.paper_size_id)
-            fields |= win32con.DM_PAPERSIZE
+            if settings.paper_size_id is not None:
+                dm.PaperSize = int(settings.paper_size_id)
+                fields |= win32con.DM_PAPERSIZE
 
-        if settings.paper_source_id is not None:
-            dm.DefaultSource = int(settings.paper_source_id)
-            fields |= win32con.DM_DEFAULTSOURCE
+            if settings.paper_source_id is not None:
+                dm.DefaultSource = int(settings.paper_source_id)
+                fields |= win32con.DM_DEFAULTSOURCE
 
-        if forced_orientation is not None:
-            dm.Orientation = int(forced_orientation)
-            fields |= win32con.DM_ORIENTATION
-        elif settings.orientation == "landscape":
-            dm.Orientation = win32con.DMORIENT_LANDSCAPE
-            fields |= win32con.DM_ORIENTATION
-        elif settings.orientation == "portrait":
-            dm.Orientation = win32con.DMORIENT_PORTRAIT
-            fields |= win32con.DM_ORIENTATION
+            if forced_orientation is not None:
+                dm.Orientation = int(forced_orientation)
+                fields |= win32con.DM_ORIENTATION
+            elif settings.orientation == "landscape":
+                dm.Orientation = win32con.DMORIENT_LANDSCAPE
+                fields |= win32con.DM_ORIENTATION
+            elif settings.orientation == "portrait":
+                dm.Orientation = win32con.DMORIENT_PORTRAIT
+                fields |= win32con.DM_ORIENTATION
 
-        duplex_lookup = {
-            "simplex": win32con.DMDUP_SIMPLEX,
-            "long_edge": win32con.DMDUP_VERTICAL,
-            "short_edge": win32con.DMDUP_HORIZONTAL,
-        }
-        dm.Duplex = duplex_lookup[settings.duplex]
-        fields |= win32con.DM_DUPLEX
+            duplex_lookup = {
+                "simplex": win32con.DMDUP_SIMPLEX,
+                "long_edge": win32con.DMDUP_VERTICAL,
+                "short_edge": win32con.DMDUP_HORIZONTAL,
+            }
+            dm.Duplex = duplex_lookup[settings.duplex]
+            fields |= win32con.DM_DUPLEX
 
-        dm.Color = (
-            win32con.DMCOLOR_COLOR
-            if settings.color_mode == "color"
-            else win32con.DMCOLOR_MONOCHROME
-        )
-        fields |= win32con.DM_COLOR
+            dm.Color = (
+                win32con.DMCOLOR_COLOR
+                if settings.color_mode == "color"
+                else win32con.DMCOLOR_MONOCHROME
+            )
+            fields |= win32con.DM_COLOR
 
-        dm.Copies = 1 if software_copies else max(1, int(settings.copies))
-        fields |= win32con.DM_COPIES
+            dm.Copies = 1 if software_copies else max(1, int(settings.copies))
+            fields |= win32con.DM_COPIES
 
-        dm.Collate = win32con.DMCOLLATE_TRUE if settings.collate else win32con.DMCOLLATE_FALSE
-        fields |= win32con.DM_COLLATE
+            dm.Collate = win32con.DMCOLLATE_TRUE if settings.collate else win32con.DMCOLLATE_FALSE
+            fields |= win32con.DM_COLLATE
 
-        dm.Fields = fields
-        win32print.DocumentProperties(
-            0, handle, printer_name, dm, dm, win32con.DM_IN_BUFFER | win32con.DM_OUT_BUFFER
-        )
-        return dm
-    finally:
-        win32print.ClosePrinter(handle)
+            dm.Fields = fields
+            win32print.DocumentProperties(
+                0, handle, printer_name, dm, dm, win32con.DM_IN_BUFFER | win32con.DM_OUT_BUFFER
+            )
+            return dm
+        finally:
+            win32print.ClosePrinter(handle)
 
 
 def sync_settings_from_devmode(

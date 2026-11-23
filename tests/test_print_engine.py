@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import fitz
+import pytest
 from PIL import Image
 
 from printstack.document_service import DocumentManager
@@ -18,7 +19,10 @@ from printstack.print_engine import (
     render_preview_sheet_png,
     resolve_job_orientation,
 )
+from printstack.printer_service import list_printers
 from printstack.storage import AppStorage
+
+_HAS_MS_PDF = any(p.name == "Microsoft Print to PDF" for p in list_printers())
 
 
 def _make_colored_pdf(path: Path, pages: int = 4, landscape: bool = False) -> Path:
@@ -63,6 +67,7 @@ def test_2up_auto_orientation_chooses_landscape_for_portrait_pages():
     assert resolve_job_orientation(s, [(595.0, 842.0), (595.0, 842.0)]) == "landscape"
 
 
+@pytest.mark.skipif(not _HAS_MS_PDF, reason="Microsoft Print to PDF printer not installed")
 def test_gdi_print_to_microsoft_print_to_pdf_separate_and_merged(tmp_path: Path):
     pdf1 = _make_colored_pdf(tmp_path / "one.pdf", pages=2)
     pdf2 = _make_colored_pdf(tmp_path / "two.pdf", pages=2)

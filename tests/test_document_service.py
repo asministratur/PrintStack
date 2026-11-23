@@ -6,12 +6,14 @@ import time
 from pathlib import Path
 
 import fitz
+import pytest
 from docx import Document as DocxDocument
 from PIL import Image
 
 from printstack.document_service import (
     DocumentManager,
     convert_image_to_pdf,
+    detect_word_engine,
     inspect_pdf,
     scan_paths,
 )
@@ -83,6 +85,10 @@ def test_pdf_password_lock_and_unlock(tmp_path: Path):
         dm.shutdown()
 
 
+@pytest.mark.skipif(
+    not detect_word_engine()["available"],
+    reason="Requires Microsoft Word or LibreOffice installed",
+)
 def test_word_docx_conversion_via_word_com(tmp_path: Path):
     docx_path = tmp_path / "memo.docx"
     doc = DocxDocument()
