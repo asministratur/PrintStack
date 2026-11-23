@@ -10,7 +10,7 @@ Windows desktop utility for queuing, previewing, and batch-printing PDF, Word, a
 
 No Python installation is required for prebuilt releases.
 
-1. Download the latest release from [GitHub Releases](https://github.com/asministratur/printstack/releases):
+1. Download the latest release from [GitHub Releases](https://github.com/asministratur/PrintStack/releases):
    - **Installer** (`Printstack-Setup-*.exe`): per-user install (no admin prompt) with optional Desktop, SendTo, and Explorer right-click integration.
    - **Portable** (`Printstack-*-win64-portable.zip`): extract and run `Printstack.exe`.
 2. Drop files or folders into the window, verify the sheet preview, and press `Ctrl+P` to print.
@@ -40,8 +40,8 @@ No Python installation is required for prebuilt releases.
 Requires Windows 10/11 and Python 3.11+.
 
 ```powershell
-git clone git@github.com:asministratur/printstack.git
-cd printstack
+git clone git@github.com:asministratur/PrintStack.git
+cd PrintStack
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
