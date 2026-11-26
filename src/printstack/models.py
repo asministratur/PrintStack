@@ -87,12 +87,24 @@ class PageDimension(BaseModel):
     height_pt: float
 
 
+class ExcelPrintOptions(BaseModel):
+    sheet_scope: Literal["all", "selected"] = "all"
+    selected_sheets: list[str] = Field(default_factory=list)
+    fit_mode: Literal["none", "fit_columns", "fit_rows", "fit_sheet"] = "fit_columns"
+    orientation: Literal["auto", "portrait", "landscape"] = "auto"
+    paper_size: Literal["auto", "a4", "letter", "legal", "a3"] = "auto"
+    margins: Literal["default", "narrow", "normal", "wide"] = "default"
+    gridlines: bool = False
+    headings: bool = False
+    center_horizontally: bool = True
+
+
 class QueueItem(BaseModel):
     id: str
     name: str
     original_path: str
     file_ext: str
-    file_type: Literal["pdf", "word", "image"]
+    file_type: Literal["pdf", "word", "excel", "image"]
     size_bytes: int = 0
     status: Literal["converting", "ready", "password_required", "error"] = "converting"
     error_message: Optional[str] = None
@@ -103,6 +115,10 @@ class QueueItem(BaseModel):
     skipped_pages: list[int] = Field(default_factory=list)
     use_override: bool = False
     override_settings: Optional[PrintSettings] = None
+    excel_sheets: list[str] = Field(default_factory=list)
+    excel_options: Optional[ExcelPrintOptions] = None
+    is_updating_layout: bool = False
+    layout_rev: int = 0
     added_at: str = ""
 
 
@@ -111,6 +127,7 @@ class QueueItemUpdate(BaseModel):
     skipped_pages: Optional[list[int]] = None
     use_override: Optional[bool] = None
     override_settings: Optional[PrintSettings] = None
+    excel_options: Optional[ExcelPrintOptions] = None
 
 
 class QueueReorderRequest(BaseModel):

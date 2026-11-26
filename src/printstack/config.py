@@ -48,8 +48,9 @@ SERVER_INFO_PATH = DATA_DIR / "server.json"
 
 PDF_EXTS = {".pdf"}
 WORD_EXTS = {".docx", ".doc", ".rtf"}
+EXCEL_EXTS = {".xlsx", ".xls", ".xlsm", ".xlsb", ".csv"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
-SUPPORTED_EXTS = PDF_EXTS | WORD_EXTS | IMAGE_EXTS
+SUPPORTED_EXTS = PDF_EXTS | WORD_EXTS | EXCEL_EXTS | IMAGE_EXTS
 
 
 def ensure_dirs() -> None:

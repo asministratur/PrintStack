@@ -8,6 +8,7 @@ export class SettingsController {
     this.callbacks = callbacks;
     this.activeTab = "global"; // "global" | "file"
     this._saveTimer = null;
+    this._excelSaveTimer = null;
 
     this.els = {
       tabs: document.getElementById("settings-scope-tabs"),
@@ -47,6 +48,20 @@ export class SettingsController {
       wrapNupOpts: document.getElementById("wrap-nup-options"),
       selNupOrder: document.getElementById("sel-nup-order"),
       chkNupBorder: document.getElementById("chk-nup-border"),
+
+      // Excel Page Setup controls
+      excelCard: document.getElementById("excel-setup-card"),
+      excelStatusPill: document.getElementById("excel-status-pill"),
+      wrapExcelSheets: document.getElementById("wrap-excel-sheets"),
+      btnExcelAllSheets: document.getElementById("btn-excel-all-sheets"),
+      excelSheetChips: document.getElementById("excel-sheet-chips"),
+      selExcelFit: document.getElementById("sel-excel-fit"),
+      segExcelOrient: document.getElementById("seg-excel-orient"),
+      selExcelPaper: document.getElementById("sel-excel-paper"),
+      selExcelMargins: document.getElementById("sel-excel-margins"),
+      chkExcelGridlines: document.getElementById("chk-excel-gridlines"),
+      chkExcelHeadings: document.getElementById("chk-excel-headings"),
+      chkExcelCenter: document.getElementById("chk-excel-center"),
     };
 
     this._bindEvents();
@@ -244,6 +259,163 @@ export class SettingsController {
       s.nup_border = this.els.chkNupBorder.checked;
       this._commitEditedSettings(s);
     });
+
+    // --- Seamless Excel Page Setup bindings ---
+    this.els.btnExcelAllSheets?.addEventListener("click", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.sheet_scope = "all";
+        opts.selected_sheets = [];
+      });
+    });
+
+    this.els.selExcelFit?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.fit_mode = this.els.selExcelFit.value;
+      });
+    });
+
+    if (this.els.segExcelOrient) {
+      this._bindSegmented(this.els.segExcelOrient, (val) => {
+        this._mutateExcelOptions((opts) => {
+          opts.orientation = val;
+        });
+      });
+    }
+
+    this.els.selExcelPaper?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.paper_size = this.els.selExcelPaper.value;
+      });
+    });
+
+    this.els.selExcelMargins?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.margins = this.els.selExcelMargins.value;
+      });
+    });
+
+    this.els.chkExcelGridlines?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.gridlines = this.els.chkExcelGridlines.checked;
+      });
+    });
+
+    this.els.chkExcelHeadings?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.headings = this.els.chkExcelHeadings.checked;
+      });
+    });
+
+    this.els.chkExcelCenter?.addEventListener("change", () => {
+      this._mutateExcelOptions((opts) => {
+        opts.center_horizontally = this.els.chkExcelCenter.checked;
+      });
+    });
+  }
+
+  _defaultExcelOptions() {
+    return {
+      sheet_scope: "all",
+      selected_sheets: [],
+      fit_mode: "fit_columns",
+      orientation: "auto",
+      paper_size: "auto",
+      margins: "default",
+      gridlines: false,
+      headings: false,
+      center_horizontally: true,
+    };
+  }
+
+  _mutateExcelOptions(mutator) {
+    const item = this.callbacks.getSelectedItem();
+    if (!item || item.file_type !== "excel") return;
+    const opts = structuredClone(item.excel_options || this._defaultExcelOptions());
+    mutator(opts);
+    item.excel_options = opts;
+    this._renderExcelCard(item);
+
+    clearTimeout(this._excelSaveTimer);
+    this._excelSaveTimer = setTimeout(() => {
+      this.callbacks.updateExcelOptions?.(item.id, opts);
+    }, 180);
+  }
+
+  _renderExcelCard(item) {
+    if (!this.els.excelCard) return;
+    const isExcel = Boolean(item && item.file_type === "excel");
+    this.els.excelCard.classList.toggle("hidden", !isExcel);
+    if (!isExcel) return;
+
+    const opts = item.excel_options || this._defaultExcelOptions();
+    const sheets = item.excel_sheets || [];
+
+    if (this.els.excelStatusPill) {
+      if (item.is_updating_layout || item.status === "converting") {
+        this.els.excelStatusPill.textContent = "Updating...";
+        this.els.excelStatusPill.classList.add("updating");
+      } else if (opts.sheet_scope === "selected" && opts.selected_sheets?.length) {
+        this.els.excelStatusPill.textContent = `${opts.selected_sheets.length}/${sheets.length || opts.selected_sheets.length} sheets`;
+        this.els.excelStatusPill.classList.remove("updating");
+      } else {
+        this.els.excelStatusPill.textContent = sheets.length > 1 ? `All (${sheets.length} sheets)` : "1 sheet";
+        this.els.excelStatusPill.classList.remove("updating");
+      }
+    }
+
+    // Worksheets chip strip (show when > 1 sheet)
+    if (this.els.wrapExcelSheets && this.els.excelSheetChips) {
+      this.els.wrapExcelSheets.classList.toggle("hidden", sheets.length <= 1);
+      if (sheets.length > 1) {
+        const selectedSet = new Set(opts.selected_sheets || []);
+        const isAll = opts.sheet_scope !== "selected" || selectedSet.size === 0;
+        this.els.excelSheetChips.innerHTML = "";
+        for (const name of sheets) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `sheet-chip${isAll || selectedSet.has(name) ? " active" : ""}`;
+          btn.textContent = name;
+          btn.title = name;
+          btn.addEventListener("click", () => {
+            this._mutateExcelOptions((o) => {
+              let next;
+              if (o.sheet_scope !== "selected" || !(o.selected_sheets || []).length) {
+                // Switching from "All" to single sheet focus
+                next = [name];
+              } else {
+                const cur = new Set(o.selected_sheets);
+                if (cur.has(name)) {
+                  cur.delete(name);
+                } else {
+                  cur.add(name);
+                }
+                next = sheets.filter((s) => cur.has(s));
+              }
+              if (!next.length || next.length === sheets.length) {
+                o.sheet_scope = "all";
+                o.selected_sheets = [];
+              } else {
+                o.sheet_scope = "selected";
+                o.selected_sheets = next;
+              }
+            });
+          });
+          this.els.excelSheetChips.appendChild(btn);
+        }
+      }
+    }
+
+    if (this.els.selExcelFit) this.els.selExcelFit.value = opts.fit_mode || "fit_columns";
+    if (this.els.segExcelOrient) {
+      for (const btn of this.els.segExcelOrient.querySelectorAll("[data-val]")) {
+        btn.classList.toggle("active", btn.dataset.val === (opts.orientation || "auto"));
+      }
+    }
+    if (this.els.selExcelPaper) this.els.selExcelPaper.value = opts.paper_size || "auto";
+    if (this.els.selExcelMargins) this.els.selExcelMargins.value = opts.margins || "default";
+    if (this.els.chkExcelGridlines) this.els.chkExcelGridlines.checked = Boolean(opts.gridlines);
+    if (this.els.chkExcelHeadings) this.els.chkExcelHeadings.checked = Boolean(opts.headings);
+    if (this.els.chkExcelCenter) this.els.chkExcelCenter.checked = opts.center_horizontally !== false;
   }
 
   _bindSegmented(container, onPick) {
@@ -351,6 +523,8 @@ export class SettingsController {
     } else {
       this.els.form.classList.remove("locked-readonly");
     }
+
+    this._renderExcelCard(item);
 
     const s =
       inFileTab && item.use_override && item.override_settings

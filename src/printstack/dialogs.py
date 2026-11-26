@@ -27,6 +27,8 @@ def _build_file_filter() -> str:
         "*.pdf",
         "Word Documents",
         "*.docx;*.doc;*.rtf",
+        "Excel Spreadsheets",
+        "*.xlsx;*.xls;*.xlsm;*.xlsb;*.csv",
         "Images",
         "*.jpg;*.jpeg;*.png;*.bmp;*.webp;*.tif;*.tiff",
         "All Files",
@@ -49,7 +51,7 @@ def pick_files_dialog() -> list[str]:
             hwndOwner=owner_hwnd,
             Filter=_build_file_filter(),
             FilterIndex=1,
-            Title="Select PDF, Word, or Image Files",
+            Title="Select PDF, Word, Excel, or Image Files",
             Flags=flags,
             MaxFile=65535,
         )

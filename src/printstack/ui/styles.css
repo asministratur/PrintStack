@@ -581,7 +581,16 @@ button {
 }
 .ext-badge.pdf { background: rgba(220, 38, 38, 0.12); color: var(--danger); }
 .ext-badge.word { background: var(--accent-soft); color: var(--accent); }
-.ext-badge.image { background: var(--ok-soft); color: var(--ok); }
+.ext-badge.excel { background: rgba(16, 185, 129, 0.15); color: #059669; }
+:root[data-theme="dark"] .ext-badge.excel { color: #34d399; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .ext-badge.excel { color: #34d399; }
+}
+.ext-badge.image { background: rgba(139, 92, 246, 0.14); color: #7c3aed; }
+:root[data-theme="dark"] .ext-badge.image { color: #a78bfa; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .ext-badge.image { color: #a78bfa; }
+}
 
 .qi-name {
   font-weight: 500;
@@ -659,6 +668,11 @@ button {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.preview-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .preview-meta-pill {
   font-size: 11.5px;
   color: var(--text-muted);
@@ -667,6 +681,26 @@ button {
   border-radius: 6px;
   padding: 3px 9px;
   font-variant-numeric: tabular-nums;
+}
+.preview-updating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.mini-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.8px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
 }
 .zoom-label {
   min-width: 34px;
@@ -923,6 +957,103 @@ button {
 .settings-scroll.locked-readonly {
   opacity: 0.52;
   pointer-events: none;
+}
+.settings-scroll.locked-readonly .excel-setup-card {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Seamless Excel Page Setup Card */
+.excel-setup-card {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.excel-setup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.excel-setup-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.excel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex-shrink: 0;
+}
+.excel-status-pill {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.excel-status-pill.updating {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+.excel-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 74px;
+  overflow-y: auto;
+}
+.sheet-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.sheet-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.sheet-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.excel-check-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 2px;
+}
+.excel-mini-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .setting-group {

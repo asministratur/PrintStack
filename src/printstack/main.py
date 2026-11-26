@@ -40,7 +40,7 @@ from printstack.desktop_integration import (
     uninstall_integration,
 )
 from printstack.dialogs import pick_files_dialog, pick_folder_dialog
-from printstack.document_service import DocumentManager, detect_word_engine
+from printstack.document_service import DocumentManager, detect_excel_engine, detect_word_engine
 from printstack.models import (
     BatchState,
     ImportPathsRequest,
@@ -292,6 +292,7 @@ def create_app() -> FastAPI:
             "version": APP_VERSION,
             "data_dir": str(DATA_DIR),
             "word_engine": detect_word_engine(),
+            "excel_engine": detect_excel_engine(),
         }
 
     @app.get("/api/bootstrap")
@@ -307,6 +308,7 @@ def create_app() -> FastAPI:
         return {
             "version": APP_VERSION,
             "word_engine": await asyncio.to_thread(detect_word_engine),
+            "excel_engine": await asyncio.to_thread(detect_excel_engine),
             "printers": [p.model_dump() for p in printers],
             "capabilities": caps.model_dump() if caps else None,
             "global_settings": global_settings.model_dump(),
@@ -637,7 +639,11 @@ def create_app() -> FastAPI:
                 72,
                 False,
             )
-            return Response(content=png, media_type="image/png")
+            return Response(
+                content=png,
+                media_type="image/png",
+                headers={"Cache-Control": "no-store"},
+            )
         except IndexError:
             raise HTTPException(status_code=404, detail="Page out of range")
 

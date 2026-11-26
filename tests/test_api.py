@@ -156,7 +156,8 @@ def test_queue_bulk_enable_and_sort(client: TestClient):
     assert res_on.status_code == 200
     assert all(x["enabled"] for x in res_on.json())
 
-    # Bootstrap exposes word_engine metadata
+    # Bootstrap exposes word_engine and excel_engine metadata
     boot = client.get("/api/bootstrap").json()
     assert "word_engine" in boot and "available" in boot["word_engine"]
+    assert "excel_engine" in boot and "available" in boot["excel_engine"]
 

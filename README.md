@@ -4,7 +4,7 @@
 
 # Printstack
 
-Windows desktop utility for queuing, previewing, and batch-printing PDF, Word, and image files with native Win32 printer settings.
+Windows desktop utility for queuing, previewing, and batch-printing PDF, Word, Excel, and image files with native Win32 printer settings.
 
 ## Download (Windows 10 / 11)
 
@@ -19,8 +19,9 @@ No Python installation is required for prebuilt releases.
 
 ## Features
 
-- **Multi-format queue**: PDF (`.pdf`), Word (`.docx`, `.doc`, `.rtf`), and images (`.jpg`, `.jpeg`, `.png`, `.bmp`, `.webp`, `.tif`, `.tiff`) with natural sort and recursive folder import.
-- **Word conversion fallback**: converts Word documents via Microsoft Word COM or headless LibreOffice (`soffice`).
+- **Multi-format queue**: PDF (`.pdf`), Word (`.docx`, `.doc`, `.rtf`), Excel (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.csv`), and images (`.jpg`, `.jpeg`, `.png`, `.bmp`, `.webp`, `.tif`, `.tiff`) with natural sort and recursive folder import.
+- **Seamless Excel Page Setup**: choose specific worksheets, fit all columns/rows/sheet to one page, switch landscape/portrait reflow, margins, gridlines, and row/column headings with instant cached preview updates.
+- **Office conversion fallback**: converts Word and Excel documents via Microsoft Office COM or headless LibreOffice (`soffice`).
 - **Interactive preview**: cached sheet flipping, `Ctrl+Scroll` zoom, drag-to-pan, per-page jump, and click-to-skip thumbnails.
 - **Full Win32 printer control**: dynamic paper sizes, trays, duplex, color/grayscale, N-up (2/4/6/9 per sheet), custom page ranges, saved presets, per-file overrides, and native Windows Driver Properties dialog.
 - **Batch modes & guardrails**: print as separate jobs or merge into a single job, with pre-print warnings for offline printers or batches over 50 sheets.

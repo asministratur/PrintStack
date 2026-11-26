@@ -4,7 +4,7 @@ import { api, connectWebSocket } from "./api.js";
 import { PreviewController } from "./preview.js";
 import { SettingsController } from "./settings.js";
 
-const SUPPORTED_RE = /\.(pdf|docx|doc|rtf|jpg|jpeg|png|bmp|webp|tif|tiff)$/i;
+const SUPPORTED_RE = /\.(pdf|docx|doc|rtf|xlsx|xls|xlsm|xlsb|csv|jpg|jpeg|png|bmp|webp|tif|tiff)$/i;
 
 function escapeHtml(str) {
   return String(str || "")
@@ -24,6 +24,7 @@ function formatBytes(bytes) {
 const state = {
   printers: [],
   wordEngine: { engine: "none", available: true, label: "" },
+  excelEngine: { engine: "none", available: true, label: "" },
   capabilitiesCache: {},
   globalSettings: {},
   mergeMode: false,
@@ -137,10 +138,17 @@ function refreshDiagnostics() {
 
   const printer = state.printers.find((x) => x.name === state.globalSettings.printer_name);
   const hasWordDocs = state.queue.some((q) => q.file_type === "word");
+  const hasExcelDocs = state.queue.some((q) => q.file_type === "excel");
 
   if (printer && printer.status_severity === "error") {
     banner.className = "diagnostic-banner error";
     textEl.textContent = `Printer "${printer.name}" reports "${printer.status_label}". Check power, paper, or connection before printing.`;
+    return;
+  }
+
+  if (hasExcelDocs && state.excelEngine && state.excelEngine.available === false) {
+    banner.className = "diagnostic-banner";
+    textEl.textContent = "Microsoft Excel or LibreOffice Calc was not detected. Excel files (.xlsx/.xls/.csv) require one of them to convert.";
     return;
   }
 
@@ -180,6 +188,8 @@ function renderQueue() {
     let statusHtml = "";
     if (item.status === "converting") {
       statusHtml = `<span class="mini-tag warn">Converting...</span>`;
+    } else if (item.is_updating_layout) {
+      statusHtml = `<span class="mini-tag override">Updating...</span>`;
     } else if (item.status === "password_required") {
       statusHtml = `<button class="btn-xs unlock-inline-btn" type="button">Unlock PDF</button>`;
     } else if (item.status === "error") {
@@ -187,7 +197,11 @@ function renderQueue() {
     } else {
       const skippedCount = item.skipped_pages ? item.skipped_pages.length : 0;
       const skipInfo = skippedCount ? ` (${skippedCount} skipped)` : "";
-      statusHtml = `<span>${item.page_count} pg${item.page_count === 1 ? "" : "s"}${skipInfo}</span>`;
+      const sheetInfo =
+        item.file_type === "excel" && item.excel_sheets && item.excel_sheets.length > 1
+          ? `${item.excel_sheets.length} shts · `
+          : "";
+      statusHtml = `<span>${sheetInfo}${item.page_count} pg${item.page_count === 1 ? "" : "s"}${skipInfo}</span>`;
     }
 
     const overrideTag = item.use_override ? `<span class="mini-tag override">Custom</span>` : "";
@@ -306,7 +320,7 @@ function refreshHeaderPrinter() {
 
 function updateFooterCTA() {
   const readyEnabled = state.queue.filter((q) => q.enabled && q.status === "ready");
-  const converting = state.queue.filter((q) => q.enabled && q.status === "converting");
+  const converting = state.queue.filter((q) => q.enabled && (q.status === "converting" || q.is_updating_layout));
   const isPrinting = ["printing", "cancelling"].includes(state.batchState.status);
   const hasFailed = (state.batchState.files || []).some((f) => f.status === "failed");
 
@@ -315,7 +329,8 @@ function updateFooterCTA() {
   const btnRetry = document.getElementById("btn-retry-failed");
   const summaryEl = document.getElementById("print-summary-line");
 
-  btnPrint.disabled = isPrinting || readyEnabled.length === 0 || !state.globalSettings.printer_name;
+  btnPrint.disabled =
+    isPrinting || converting.length > 0 || readyEnabled.length === 0 || !state.globalSettings.printer_name;
   btnPrint.textContent = isPrinting
     ? "Printing..."
     : state.mergeMode
@@ -326,9 +341,9 @@ function updateFooterCTA() {
   btnRetry.classList.toggle("hidden", isPrinting || !hasFailed);
 
   if (!state.queue.length) {
-    summaryEl.textContent = "Add PDF, Word, or Image files to start";
+    summaryEl.textContent = "Add PDF, Word, Excel, or Image files to start";
   } else if (converting.length) {
-    summaryEl.textContent = `Converting ${converting.length} file(s)...`;
+    summaryEl.textContent = `Updating ${converting.length} file(s)...`;
   } else {
     const sheets = state.lastPlan?.total_batch_sheets ?? "?";
     const copies = state.globalSettings.copies || 1;
@@ -469,7 +484,7 @@ function setupGlobalDropzone() {
     try {
       const files = await collectDroppedFiles(e.dataTransfer);
       if (!files.length) {
-        toast("No supported PDF, Word, or Image files found in drop", "error");
+        toast("No supported PDF, Word, Excel, or Image files found in drop", "error");
         return;
       }
       const res = await api.uploadFiles(files);
@@ -669,6 +684,7 @@ async function init() {
   const boot = await api.bootstrap();
   state.printers = boot.printers || [];
   state.wordEngine = boot.word_engine || { engine: "none", available: true, label: "" };
+  state.excelEngine = boot.excel_engine || { engine: "none", available: true, label: "" };
   state.globalSettings = boot.global_settings || {};
   if (boot.capabilities && state.globalSettings.printer_name) {
     state.capabilitiesCache[state.globalSettings.printer_name] = boot.capabilities;
@@ -720,6 +736,13 @@ async function init() {
         override_settings: overrideSettings,
       });
       if (!quiet) previewCtrl.scheduleRefresh(40);
+    },
+    updateExcelOptions: async (itemId, excelOptions) => {
+      try {
+        await api.updateQueueItem(itemId, { excel_options: excelOptions });
+      } catch (err) {
+        toast(err.message, "error");
+      }
     },
     onSettingsChanged: () => previewCtrl.scheduleRefresh(120),
   });

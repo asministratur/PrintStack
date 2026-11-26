@@ -23,6 +23,7 @@ export class PreviewController {
       inpSheet: document.getElementById("input-sheet-num"),
       lblTotal: document.getElementById("label-total-sheets"),
       metaPill: document.getElementById("preview-meta-pill"),
+      updatingPill: document.getElementById("preview-updating-pill"),
       btnZoomOut: document.getElementById("btn-zoom-out"),
       btnZoomIn: document.getElementById("btn-zoom-in"),
       btnZoomFit: document.getElementById("btn-zoom-fit"),
@@ -227,7 +228,10 @@ export class PreviewController {
 
   _buildSheetCacheKey(params, sheetIdx) {
     const slotSig = (this.plan?.sheets?.[sheetIdx] || [])
-      .map((s) => `${s.item_id}:${s.page_number}`)
+      .map((s) => {
+        const q = (this.state.queue || []).find((x) => x.id === s.item_id);
+        return `${s.item_id}@${q?.layout_rev || 0}:${s.page_number}`;
+      })
       .join(",");
     return `${new URLSearchParams(params).toString()}|idx=${sheetIdx}|slots=${slotSig}`;
   }
@@ -275,6 +279,11 @@ export class PreviewController {
     }
 
     this.els.btnOpenOrig.classList.toggle("hidden", !item);
+    const isUpdatingLayout = Boolean(item && item.is_updating_layout);
+    this.els.updatingPill?.classList.toggle("hidden", !isUpdatingLayout);
+    if (isUpdatingLayout) {
+      this.els.sheetImg.classList.add("loading");
+    }
 
     if (!this.state.queue.length) {
       this._showEmpty();
@@ -284,8 +293,11 @@ export class PreviewController {
 
     if (this.state.previewScope === "file" && item) {
       if (item.status === "converting") {
-        const engineLabel = this.state.wordEngine?.label || "document";
-        this._showStateCard(true, "Converting document...", `Preparing ${item.name} via ${engineLabel} / image engine.`, false);
+        const engineLabel =
+          item.file_type === "excel"
+            ? this.state.excelEngine?.label || "Excel"
+            : this.state.wordEngine?.label || "document";
+        this._showStateCard(true, "Converting document...", `Preparing ${item.name} via ${engineLabel} engine.`, false);
         this.els.thumbWrap.classList.add("hidden");
         return;
       }
@@ -422,7 +434,8 @@ export class PreviewController {
     const skippedText = skipped.size ? ` · ${skipped.size} skipped` : "";
     this.els.thumbTitle.textContent = `${item.name} (${item.page_count} pg${item.page_count > 1 ? "s" : ""}${skippedText}) — click page to jump, click ✓/× to skip`;
 
-    const sig = `${item.id}:${item.page_count}`;
+    const rev = item.layout_rev || 0;
+    const sig = `${item.id}:${item.page_count}:${rev}`;
     if (this.els.thumbStrip.dataset.sig !== sig) {
       this.els.thumbStrip.dataset.sig = sig;
       this.els.thumbStrip.innerHTML = "";
@@ -432,7 +445,7 @@ export class PreviewController {
         card.dataset.page = String(p);
         card.innerHTML = `
           <button type="button" class="thumb-skip-pill" title="Toggle skip/include page ${p}">✓</button>
-          <img src="/api/preview/thumbnail/${encodeURIComponent(item.id)}/${p - 1}" loading="lazy" alt="Page ${p}" />
+          <img src="/api/preview/thumbnail/${encodeURIComponent(item.id)}/${p - 1}?rev=${rev}" loading="lazy" alt="Page ${p}" />
           <div class="thumb-num">${p}</div>
         `;
 

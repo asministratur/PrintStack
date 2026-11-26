@@ -91,7 +91,7 @@ def _create_shortcut(lnk_path: Path, target_path: Path, arguments: str, icon_loc
         shortcut.WorkingDirectory = str(working_dir)
         if icon_loc:
             shortcut.IconLocation = icon_loc
-        shortcut.Description = "Batch print PDF, Word, and images with native Windows printer settings"
+        shortcut.Description = "Batch print PDF, Word, Excel, and images with native Windows printer settings"
         shortcut.Save()
     finally:
         shortcut = None

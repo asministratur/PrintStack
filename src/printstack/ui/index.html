@@ -18,7 +18,7 @@
         </svg>
       </div>
       <h2>Drop files or folders</h2>
-      <p>PDF, Word (.docx, .doc, .rtf), and Images (.jpg, .png, .webp, .tiff)</p>
+      <p>PDF, Word (.docx, .doc, .rtf), Excel (.xlsx, .xls, .csv), and Images (.jpg, .png, .webp, .tiff)</p>
     </div>
   </div>
 
@@ -123,7 +123,13 @@
           </div>
         </div>
 
-        <div class="preview-meta-pill" id="preview-meta-pill">No document selected</div>
+        <div class="preview-meta-group">
+          <div class="preview-meta-pill" id="preview-meta-pill">No document selected</div>
+          <div class="preview-updating-pill hidden" id="preview-updating-pill">
+            <span class="mini-spinner"></span>
+            <span>Updating layout...</span>
+          </div>
+        </div>
 
         <div class="preview-toolbar-right">
           <div class="zoom-group" title="Hold Ctrl + Scroll to zoom">
@@ -150,7 +156,7 @@
             </svg>
           </div>
           <h3>Ready for batch printing</h3>
-          <p>Drop <strong>PDF</strong>, <strong>Word</strong>, <strong>Images</strong>, or entire <strong>Folders</strong> to preview sheets and print with full Windows driver settings.</p>
+          <p>Drop <strong>PDF</strong>, <strong>Word</strong>, <strong>Excel</strong>, <strong>Images</strong>, or entire <strong>Folders</strong> to preview sheets and print with full Windows driver settings.</p>
           <div class="preview-empty-cta">
             <button class="btn-primary" id="btn-empty-add-files">Select Files</button>
             <button class="btn-secondary" id="btn-empty-add-folder">Select Folder</button>
@@ -205,6 +211,81 @@
       </div>
 
       <div class="settings-scroll" id="settings-form">
+        <!-- Seamless Excel Page Setup (visible when an Excel file is selected) -->
+        <section class="excel-setup-card hidden" id="excel-setup-card" aria-label="Excel Page Setup">
+          <div class="excel-setup-header">
+            <div class="excel-setup-title">
+              <span class="excel-dot"></span>
+              <span>Excel Page Setup</span>
+            </div>
+            <span class="excel-status-pill" id="excel-status-pill">All sheets</span>
+          </div>
+
+          <div class="setting-group" id="wrap-excel-sheets">
+            <div class="setting-label-row">
+              <span class="setting-label">Worksheets</span>
+              <button class="btn-link" id="btn-excel-all-sheets" type="button">All</button>
+            </div>
+            <div class="excel-sheet-chips" id="excel-sheet-chips"></div>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="sel-excel-fit">Sheet Scaling</label>
+            <select id="sel-excel-fit" class="input-select">
+              <option value="fit_columns">Fit All Columns on One Page</option>
+              <option value="fit_sheet">Fit Sheet on One Page</option>
+              <option value="fit_rows">Fit All Rows on One Page</option>
+              <option value="none">No Scaling (Actual 100%)</option>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <span class="setting-label">Sheet Orientation</span>
+            <div class="segmented-control full" id="seg-excel-orient">
+              <button class="seg-btn active" data-val="auto" type="button">Auto</button>
+              <button class="seg-btn" data-val="portrait" type="button">Portrait</button>
+              <button class="seg-btn" data-val="landscape" type="button">Landscape</button>
+            </div>
+          </div>
+
+          <div class="setting-grid-2">
+            <div class="setting-group">
+              <label class="setting-label" for="sel-excel-paper">Sheet Paper</label>
+              <select id="sel-excel-paper" class="input-select">
+                <option value="auto">Auto</option>
+                <option value="a4">A4</option>
+                <option value="letter">Letter</option>
+                <option value="legal">Legal</option>
+                <option value="a3">A3</option>
+              </select>
+            </div>
+            <div class="setting-group">
+              <label class="setting-label" for="sel-excel-margins">Margins</label>
+              <select id="sel-excel-margins" class="input-select">
+                <option value="default">Workbook Default</option>
+                <option value="narrow">Narrow</option>
+                <option value="normal">Normal</option>
+                <option value="wide">Wide</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="excel-check-strip">
+            <label class="excel-mini-check">
+              <input type="checkbox" id="chk-excel-gridlines" />
+              <span>Gridlines</span>
+            </label>
+            <label class="excel-mini-check">
+              <input type="checkbox" id="chk-excel-headings" />
+              <span>Headings</span>
+            </label>
+            <label class="excel-mini-check">
+              <input type="checkbox" id="chk-excel-center" checked />
+              <span>Center</span>
+            </label>
+          </div>
+        </section>
+
         <!-- Quick Preset Bar -->
         <div class="setting-group">
           <div class="setting-label-row">
@@ -517,7 +598,7 @@
             <input type="checkbox" id="chk-int-context" checked />
             <div>
               <strong>Explorer Right-Click Menu</strong>
-              <div class="muted small">Adds "Print with Printstack" on PDF, Word, Images &amp; Folders</div>
+              <div class="muted small">Adds "Print with Printstack" on PDF, Word, Excel, Images &amp; Folders</div>
             </div>
           </label>
         </div>

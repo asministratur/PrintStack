@@ -12,11 +12,14 @@ from PIL import Image
 
 from printstack.document_service import (
     DocumentManager,
+    _read_xlsx_sheet_names,
     convert_image_to_pdf,
+    detect_excel_engine,
     detect_word_engine,
     inspect_pdf,
     scan_paths,
 )
+from printstack.models import ExcelPrintOptions, QueueItemUpdate
 
 
 def _make_sample_pdf(path: Path, pages: int = 2, password: str | None = None) -> Path:
@@ -116,5 +119,98 @@ def test_word_docx_conversion_via_word_com(tmp_path: Path):
         assert ready_item.page_count >= 1
         assert ready_item.converted_pdf_path is not None
         assert Path(ready_item.converted_pdf_path).exists()
+    finally:
+        dm.shutdown()
+
+
+def test_read_xlsx_sheet_names_reads_visible_sheets_only(tmp_path: Path):
+    import openpyxl
+
+    xlsx_path = tmp_path / "report.xlsx"
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Summary"
+    ws1["A1"] = "Metric"
+    ws2 = wb.create_sheet("Details")
+    ws2["A1"] = "Row 1"
+    ws3 = wb.create_sheet("HiddenNotes")
+    ws3.sheet_state = "hidden"
+    wb.save(xlsx_path)
+
+    assert _read_xlsx_sheet_names(xlsx_path) == ["Summary", "Details"]
+
+
+@pytest.mark.skipif(
+    not detect_excel_engine()["available"],
+    reason="Requires Microsoft Excel or LibreOffice Calc installed",
+)
+def test_excel_conversion_and_seamless_layout_update(tmp_path: Path):
+    import openpyxl
+
+    xlsx_path = tmp_path / "financials.xlsx"
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Summary"
+    for col in range(1, 14):
+        ws1.cell(row=1, column=col, value=f"Col {col}")
+        ws1.cell(row=2, column=col, value=col * 100)
+
+    ws2 = wb.create_sheet("Breakdown")
+    for row in range(1, 25):
+        ws2.cell(row=row, column=1, value=f"Item {row}")
+        ws2.cell(row=row, column=2, value=row * 42)
+    wb.save(xlsx_path)
+
+    dm = DocumentManager(temp_dir=tmp_path / "temp", upload_dir=tmp_path / "up")
+    try:
+        items = dm.add_paths([str(xlsx_path)])
+        assert len(items) == 1
+        assert items[0].file_type == "excel"
+        item_id = items[0].id
+
+        deadline = time.monotonic() + 35.0
+        ready_item = None
+        while time.monotonic() < deadline:
+            cur = dm.get_item(item_id)
+            if cur and cur.status in ("ready", "error"):
+                ready_item = cur
+                break
+            time.sleep(0.25)
+
+        assert ready_item is not None
+        assert ready_item.status == "ready", f"Excel error: {ready_item.error_message}"
+        assert ready_item.excel_sheets == ["Summary", "Breakdown"]
+        assert ready_item.page_count >= 2
+        first_rev = ready_item.layout_rev
+
+        # Switch seamlessly to single sheet + landscape + gridlines
+        updated = dm.update_item(
+            item_id,
+            QueueItemUpdate(
+                excel_options=ExcelPrintOptions(
+                    sheet_scope="selected",
+                    selected_sheets=["Summary"],
+                    fit_mode="fit_sheet",
+                    orientation="landscape",
+                    margins="narrow",
+                    gridlines=True,
+                )
+            ),
+        )
+        assert updated is not None
+
+        deadline = time.monotonic() + 35.0
+        reflowed = None
+        while time.monotonic() < deadline:
+            cur = dm.get_item(item_id)
+            if cur and not cur.is_updating_layout and cur.layout_rev > first_rev:
+                reflowed = cur
+                break
+            time.sleep(0.25)
+
+        assert reflowed is not None
+        assert reflowed.status == "ready"
+        assert reflowed.page_count == 1
+        assert reflowed.page_dimensions[0].width_pt > reflowed.page_dimensions[0].height_pt
     finally:
         dm.shutdown()
