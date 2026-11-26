@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "printstack"
-version = "1.0.0"
+version = "1.1.0"
 description = "Windows desktop utility for queuing, previewing, and batch-printing PDF, Word, and image files."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Printstack"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = int(os.environ.get("PRINTSTACK_PORT") or os.environ.get("BATCH_PRINT_PORT") or "47821")
 
