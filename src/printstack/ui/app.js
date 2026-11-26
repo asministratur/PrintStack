@@ -1024,6 +1024,18 @@ async function init() {
       }
     }
   });
+
+  // Quietly check GitHub Releases for newer version
+  api.checkUpdates()
+    .then((info) => {
+      const badge = document.getElementById("btn-update-badge");
+      if (!badge || !info || !info.update_available) return;
+      badge.href = info.installer_url || info.release_url;
+      badge.textContent = `Update v${info.latest_version}`;
+      badge.title = `Download Printstack v${info.latest_version} (currently v${info.current_version})`;
+      badge.classList.remove("hidden");
+    })
+    .catch(() => {});
 }
 
 init().catch((err) => {

@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import threading
+import time
+import urllib.request
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -93,6 +96,52 @@ class QueueSortRequest(BaseModel):
 
 
 _ALLOWED_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "testserver"}
+_GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/asministratur/PrintStack/releases/latest"
+_UPDATE_CACHE_TTL_S = 6 * 3600
+
+
+def _parse_semver(version_str: str) -> tuple[int, ...]:
+    nums = [int(p) for p in re.findall(r"\d+", version_str or "")]
+    return tuple(nums) if nums else (0,)
+
+
+def fetch_latest_release_info(current_version: str = APP_VERSION) -> dict[str, Any]:
+    """Query GitHub Releases for a newer version; returns update_available=False on any error."""
+    req = urllib.request.Request(
+        _GITHUB_LATEST_RELEASE_URL,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": f"Printstack/{current_version}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        tag = str(data.get("tag_name") or "").strip()
+        latest = tag.lstrip("vV")
+        release_url = str(data.get("html_url") or "https://github.com/asministratur/PrintStack/releases/latest")
+        installer_url = ""
+        for asset in data.get("assets") or []:
+            name = str(asset.get("name") or "")
+            if name.lower().endswith(".exe"):
+                installer_url = str(asset.get("browser_download_url") or "")
+                break
+        is_newer = bool(latest) and _parse_semver(latest) > _parse_semver(current_version)
+        return {
+            "current_version": current_version,
+            "latest_version": latest or current_version,
+            "update_available": is_newer,
+            "release_url": release_url,
+            "installer_url": installer_url or release_url,
+        }
+    except Exception:
+        return {
+            "current_version": current_version,
+            "latest_version": current_version,
+            "update_available": False,
+            "release_url": "https://github.com/asministratur/PrintStack/releases/latest",
+            "installer_url": "https://github.com/asministratur/PrintStack/releases/latest",
+        }
 
 
 def _is_allowed_origin(origin: str) -> bool:
@@ -114,6 +163,7 @@ class AppContext:
         self._ws_lock = threading.Lock()
         self._monitor_task: Optional[asyncio.Task[Any]] = None
         self._last_printers_sig: str = ""
+        self._update_cache: Optional[tuple[float, dict[str, Any]]] = None
 
         self.doc_manager.set_on_update(self._on_queue_updated)
         self.print_manager.set_on_state_change(self._on_batch_updated)
@@ -297,6 +347,15 @@ def create_app() -> FastAPI:
             "word_engine": detect_word_engine(),
             "excel_engine": detect_excel_engine(),
         }
+
+    @app.get("/api/updates/check")
+    async def api_check_updates():
+        now = time.monotonic()
+        if ctx._update_cache and (now - ctx._update_cache[0]) < _UPDATE_CACHE_TTL_S:
+            return ctx._update_cache[1]
+        info = await asyncio.to_thread(fetch_latest_release_info, APP_VERSION)
+        ctx._update_cache = (now, info)
+        return info
 
     @app.get("/api/bootstrap")
     async def bootstrap():

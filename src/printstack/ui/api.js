@@ -29,6 +29,7 @@ export async function apiJson(url, options = {}) {
 
 export const api = {
   bootstrap: () => apiJson("/api/bootstrap"),
+  checkUpdates: () => apiJson("/api/updates/check"),
   listPrinters: () => apiJson("/api/printers"),
   getCapabilities: (name) =>
     apiJson(`/api/printers/${encodeURIComponent(name)}/capabilities`),

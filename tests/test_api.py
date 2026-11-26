@@ -161,3 +161,57 @@ def test_queue_bulk_enable_and_sort(client: TestClient):
     assert "word_engine" in boot and "available" in boot["word_engine"]
     assert "excel_engine" in boot and "available" in boot["excel_engine"]
 
+
+def test_update_check_endpoint_handles_newer_and_offline(client: TestClient, monkeypatch):
+    import json
+    import urllib.request
+    import printstack.main as main_mod
+
+    class _FakeResp:
+        def __init__(self, payload: dict):
+            self._raw = json.dumps(payload).encode("utf-8")
+
+        def read(self):
+            return self._raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: _FakeResp(
+            {
+                "tag_name": "v9.9.0",
+                "html_url": "https://github.com/asministratur/PrintStack/releases/tag/v9.9.0",
+                "assets": [
+                    {
+                        "name": "Printstack-Setup-9.9.0.exe",
+                        "browser_download_url": "https://github.com/asministratur/PrintStack/releases/download/v9.9.0/Printstack-Setup-9.9.0.exe",
+                    }
+                ],
+            }
+        ),
+    )
+    res = client.get("/api/updates/check")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["update_available"] is True
+    assert body["latest_version"] == "9.9.0"
+    assert body["installer_url"].endswith("Printstack-Setup-9.9.0.exe")
+
+    # Clear cache and verify offline error degrades gracefully
+    client.app.state.ctx._update_cache = None
+
+    def _boom(*_a, **_kw):
+        raise OSError("network offline")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    res_off = client.get("/api/updates/check")
+    assert res_off.status_code == 200
+    assert res_off.json()["update_available"] is False
+    assert main_mod._parse_semver("1.10.0") > main_mod._parse_semver("1.2.0")
+
