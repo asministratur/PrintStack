@@ -679,9 +679,12 @@ def create_app() -> FastAPI:
         sheets, eff, orient, _ = _build_preview_plan_data(scope, item_id, params)
         if not sheets or sheet_index >= len(sheets):
             raise HTTPException(status_code=404, detail="Preview sheet not available")
-        png = await asyncio.to_thread(
-            render_preview_sheet_png, sheets[sheet_index], eff, orient, dpi
-        )
+        try:
+            png = await asyncio.to_thread(
+                render_preview_sheet_png, sheets[sheet_index], eff, orient, dpi
+            )
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Preview source file unavailable")
         return Response(
             content=png,
             media_type="image/png",

@@ -149,10 +149,27 @@ def main() -> None:
                     _http_json(existing_url, "POST", "/api/queue/import-paths", {"paths": cli_paths}, timeout=10.0)
                 except Exception:
                     pass
+            focused = False
             try:
-                _http_json(existing_url, "POST", "/api/window/focus", {}, timeout=2.0)
+                res = _http_json(existing_url, "POST", "/api/window/focus", {}, timeout=2.0)
+                focused = bool(res.get("focused"))
             except Exception:
                 pass
+            if not focused:
+                browser = _find_app_browser()
+                if browser is not None:
+                    subprocess.Popen([
+                        str(browser),
+                        f"--app={existing_url}",
+                        f"--user-data-dir={BROWSER_PROFILE_DIR}",
+                        "--window-size=1360,860",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                    ])
+                else:
+                    import webbrowser
+
+                    webbrowser.open(existing_url)
             return
 
         port = _pick_available_port(SERVER_PORT)
