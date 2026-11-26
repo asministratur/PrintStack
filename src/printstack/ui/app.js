@@ -48,6 +48,12 @@ let dragQueueId = null;
 
 function toast(message, type = "info") {
   const container = document.getElementById("toast-container");
+  // Avoid stacking identical error toasts repeatedly
+  for (const existing of container.querySelectorAll(".toast")) {
+    if (existing.textContent === message) {
+      existing.remove();
+    }
+  }
   const el = document.createElement("div");
   el.className = `toast ${type}`;
   el.textContent = message;

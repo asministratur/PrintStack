@@ -209,13 +209,30 @@ def main() -> None:
             proc = subprocess.Popen(cmd)
             proc.wait()
 
-            # If browser handed off to an existing profile process immediately, monitor window HWND
-            if time.monotonic() - start_ts < 2.0:
-                wait_open = time.monotonic() + 8.0
-                while time.monotonic() < wait_open and not find_app_window_hwnd("Printstack"):
+            # If browser handed off to an existing profile process immediately,
+            # keep server alive while either the app window exists OR the UI WebSocket is connected.
+            if time.monotonic() - start_ts < 2.5:
+                wait_open = time.monotonic() + 12.0
+                while time.monotonic() < wait_open:
+                    with app.state.ctx._ws_lock:
+                        has_ws = len(app.state.ctx.ws_clients) > 0
+                    if has_ws or find_app_window_hwnd("Printstack"):
+                        break
                     time.sleep(0.25)
-                while find_app_window_hwnd("Printstack"):
-                    time.sleep(1.0)
+
+                grace_lost_since: Optional[float] = None
+                while True:
+                    with app.state.ctx._ws_lock:
+                        has_ws = len(app.state.ctx.ws_clients) > 0
+                    has_hwnd = bool(find_app_window_hwnd("Printstack"))
+                    if has_ws or has_hwnd:
+                        grace_lost_since = None
+                    else:
+                        if grace_lost_since is None:
+                            grace_lost_since = time.monotonic()
+                        elif time.monotonic() - grace_lost_since >= 3.0:
+                            break
+                    time.sleep(0.5)
         else:
             import webbrowser
 

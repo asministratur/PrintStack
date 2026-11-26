@@ -287,10 +287,13 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health():
+        with ctx._ws_lock:
+            ws_count = len(ctx.ws_clients)
         return {
             "status": "ok",
             "version": APP_VERSION,
             "data_dir": str(DATA_DIR),
+            "ws_clients": ws_count,
             "word_engine": detect_word_engine(),
             "excel_engine": detect_excel_engine(),
         }
